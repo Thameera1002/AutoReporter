@@ -45,7 +45,8 @@ allure open allure-report                                 → view in browser
 ```
 reporter/
 ├── pom.xml                         Maven build: libraries + plugins
-├── testng.xml                      Which test classes run, and the browser parameter
+├── testng.xml                      Default suite: the real tests (login, dashboard)
+├── testng-demo.xml                 Demo suite: intentional failed/broken/skipped/flaky tests
 ├── run-tests.sh                    One command: run tests → build report → open it
 ├── docs/                           These guides
 ├── src/main/java/com/ucsc/automation/
@@ -98,7 +99,7 @@ reporter/
 | `maven.compiler.source/target` | 17 | Java language level. |
 | `project.build.sourceEncoding` | UTF-8 | Avoids platform-dependent encoding warnings. |
 | `selenium.version`, `testng.version`, … | – | All versions in one place so upgrades are a one-line change. |
-| `suite` | `testng.xml` | Default suite file. Run another with `mvn test -Dsuite=smoke.xml`. |
+| `suite` | `testng.xml` | Default suite file. Run another with `mvn test -Dsuite=testng-demo.xml`. |
 | `allure.results.dir` | `${project.basedir}/allure-results` | Where raw results are written. **Outside `target/`** so `mvn clean` keeps history. |
 | `allure.report.dir` | `${project.basedir}/allure-report` | Where the HTML report is written. |
 
@@ -127,7 +128,7 @@ Selenium, TestNG and Allure use the default (`compile`) scope because the page o
 | `argLine` → `-javaagent:…aspectjweaver.jar` | Starts the test JVM with AspectJ attached, so Allure `@Step` methods are recorded. Without it, steps silently disappear from the report. |
 | `systemPropertyVariables` → `allure.results.directory` | Tells the Allure listener where to write results. |
 | `systemPropertyVariables` → `allure.report.directory` | Read by our `AllureHistoryListener` to find the previous report's history. |
-| `testFailureIgnore=false` | A failed test makes the build fail (exit code ≠ 0). Useful for CI. |
+| *(test failures)* | By default a failed test makes the build fail (exit code ≠ 0). Add `-Dmaven.test.failure.ignore=true` to finish the build anyway with failures recorded. Jenkins uses this so the reports are still published and the build is marked UNSTABLE. |
 
 **allure-maven** – adds the Maven goals `allure:report` and `allure:serve`.
 
@@ -159,14 +160,18 @@ All test settings in one place. **Any key can be overridden from the command lin
 | `page.load.timeout` | `30` | Max seconds for a page to load. |
 | `retry.count` | `2` | How many times a failed/broken test is re-run. `0` disables retries. |
 
-### 4.2 `testng.xml`
+### 4.2 `testng.xml` and `testng-demo.xml`
 
-The suite definition used by Maven.
+The suite definitions used by Maven. Which one runs is chosen with `-Dsuite` (default `testng.xml`).
 
-- `<suite name="AutoReporter Suite">` – the suite name shown in reports.
-- `<parameter name="browser" value="chrome"/>` – passed into `BaseTest.setUp(browser)`. It takes priority over `browser` in `config.properties` when running via this file.
-- Each `<test>` block groups classes and appears as a separate group in the report: *Login Tests*, *Dashboard Tests*, *Report Status Demo*, *Flaky Test Demo*. Remove the two demo blocks to run only real tests.
-- No `<listeners>` are declared here: all listeners are registered automatically (see 4.4), so they also work when a single class is run from the IDE.
+| File | Suite name | `<test>` groups | Use |
+|---|---|---|---|
+| `testng.xml` | AutoReporter Suite | *Login Tests* (`TS_Common`), *Dashboard Tests* (`TS_Dashboard`) | Normal runs, locally and on Jenkins. Should be all green. |
+| `testng-demo.xml` | AutoReporter Demo Suite | *Report Status Demo* (`TS_ReportDemo`), *Flaky Test Demo* (`TS_Flaky`) | Showing report features. Always has failures on purpose. |
+
+- `<parameter name="browser" value="chrome"/>` – passed into `BaseTest.setUp(browser)`. It takes priority over `browser` in `config.properties` when running via the suite file.
+- Each `<test>` block groups classes and appears as a separate group in the report.
+- No `<listeners>` are declared: all listeners are registered automatically (see 4.4), so they also work when a single class is run from the IDE.
 
 ### 4.3 `src/test/resources/allure.properties`
 
@@ -205,7 +210,7 @@ Creates, stores and closes the browser.
 - **`ThreadLocal<WebDriver>`** – every thread gets its own browser. This keeps tests independent and makes the framework ready for parallel runs (`parallel="methods"` in `testng.xml`).
 - `initDriver(browser)`:
   1. Calls Boni Garcia's `io.github.bonigarcia.wdm.WebDriverManager.chromedriver().setup()` (or firefox/edge) to download the matching driver. The **full package name** is used because our class has the same simple name.
-  2. Builds browser options: `--headless=new` when `headless=true`; for Chrome also `--disable-notifications`, `--remote-allow-origins=*` and **`--guest`** (guest profile stops Chrome's "password found in a data breach" popup that blocks saucedemo after login).
+  2. Builds browser options: `--headless=new` when `headless=true`; for Chrome also `--disable-notifications`, `--remote-allow-origins=*` and **`--guest`** (guest profile stops Chrome's "password found in a data breach" popup that blocks saucedemo after login). In headless mode Chrome and Edge also get `--no-sandbox` and `--disable-dev-shm-usage` (`SERVER_ARGS`), which keep Chrome from crashing on Linux servers such as Jenkins.
   3. Sets implicit wait and page-load timeout from the config, maximises the window when not headless.
   4. Stores the driver in the `ThreadLocal`.
 - `getDriver()` – returns the current thread's browser; throws a clear error if `initDriver()` was not called.
@@ -362,7 +367,9 @@ TestNG calls `transform(...)` for every `@Test` **before the run starts**. It se
 
 | Goal | Command (run in `reporter/`) |
 |---|---|
-| Run everything | `mvn clean test` |
+| Run the real tests | `mvn clean test` |
+| Run the demo tests | `mvn clean test -Dsuite=testng-demo.xml` |
+| Don't fail the build on test failures | `mvn clean test -Dmaven.test.failure.ignore=true` |
 | Headless / other browser | `mvn clean test -Dheadless=true -Dbrowser=firefox` |
 | Disable retries | `mvn clean test -Dretry.count=0` |
 | One class only | `mvn clean test -Dtest=TS_Common` |
@@ -371,5 +378,5 @@ TestNG calls `transform(...)` for every `@Test` **before the run starts**. It se
 ## 10. Extending the framework
 
 - **New page:** create `PG_Xxx extends BasePage`, add private `By` locators and `@Step` action methods that return the next page object.
-- **New tests:** create `TS_Xxx extends BaseTest` in its own package, add `@Test` methods with Allure tags, and add the class to `testng.xml`.
+- **New tests:** create `TS_Xxx extends BaseTest` in its own package, add `@Test` methods with Allure tags, and add the class to `testng.xml` (or `testng-demo.xml` for demo tests).
 - **New setting:** add it to `config.properties` and read it with `PropertyHandler.get("key")`.

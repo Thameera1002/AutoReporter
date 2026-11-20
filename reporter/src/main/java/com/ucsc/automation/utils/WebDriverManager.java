@@ -19,6 +19,13 @@ public final class WebDriverManager {
 
     private static final ThreadLocal<WebDriver> DRIVER = new ThreadLocal<>();
 
+    /**
+     * Extra Chromium flags for headless runs on Linux / CI servers (e.g. Jenkins):
+     * --no-sandbox            Chrome cannot start its sandbox when running as root or in Docker
+     * --disable-dev-shm-usage /dev/shm is often too small on servers and makes Chrome crash
+     */
+    private static final String[] SERVER_ARGS = {"--no-sandbox", "--disable-dev-shm-usage"};
+
     private WebDriverManager() {
     }
 
@@ -51,7 +58,8 @@ public final class WebDriverManager {
                 io.github.bonigarcia.wdm.WebDriverManager.edgedriver().setup();
                 EdgeOptions options = new EdgeOptions();
                 if (headless) {
-                    options.addArguments("--headless=new");
+                    options.addArguments("--headless=new", "--window-size=1920,1080");
+                    options.addArguments(SERVER_ARGS);
                 }
                 driver = new EdgeDriver(options);
             }
@@ -63,6 +71,7 @@ public final class WebDriverManager {
                 options.addArguments("--guest");
                 if (headless) {
                     options.addArguments("--headless=new", "--window-size=1920,1080");
+                    options.addArguments(SERVER_ARGS);
                 }
                 driver = new ChromeDriver(options);
             }

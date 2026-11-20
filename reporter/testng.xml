@@ -1,7 +1,9 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Real tests. Default suite for local runs and Jenkins.
+     Demo tests (intentional failed/broken/skipped/flaky) are in testng-demo.xml. -->
 <suite name="AutoReporter Suite" verbose="1">
 
-    <!-- Remove or change to run on another browser: chrome | firefox | edge -->
+    <!-- chrome | firefox | edge -->
     <parameter name="browser" value="chrome"/>
 
     <test name="Login Tests">
@@ -13,20 +15,6 @@
     <test name="Dashboard Tests">
         <classes>
             <class name="com.ucsc.automation.TS_Dashboard.TS_Dashboard"/>
-        </classes>
-    </test>
-
-    <!-- Intentional failed / broken / skipped tests to demo Allure statuses. Remove when not needed. -->
-    <test name="Report Status Demo">
-        <classes>
-            <class name="com.ucsc.automation.TS_ReportDemo.TS_ReportDemo"/>
-        </classes>
-    </test>
-
-    <!-- Intentional flaky tests to demo RetryAnalyzer + Allure Retries tab. Remove when not needed. -->
-    <test name="Flaky Test Demo">
-        <classes>
-            <class name="com.ucsc.automation.TS_Flaky.TS_Flaky"/>
         </classes>
     </test>
 </suite>

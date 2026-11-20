@@ -103,9 +103,7 @@
                     <systemPropertyVariables>
                         <allure.results.directory>${allure.results.dir}</allure.results.directory>
                         <allure.report.directory>${allure.report.dir}</allure.report.directory>
-                    </systemPropertyVariables>
-                    <testFailureIgnore>false</testFailureIgnore>
-                </configuration>
+                    </systemPropertyVariables>                </configuration>
             </plugin>
 
             <!-- mvn allure:report (keeps history in allure-report/)  /  mvn allure:serve -->
