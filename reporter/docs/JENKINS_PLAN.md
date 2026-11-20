@@ -16,7 +16,7 @@ GitHub (push / schedule) ──▶ Jenkins pipeline (Jenkinsfile in the repo)
    1. Checkout     git clone AutoReporter
    2. Test         cd reporter && mvn clean test -Dheadless=true
    3. Report       Allure Jenkins plugin → report + history trend on the build page
-   4. Publish      JUnit results, zipped report as a downloadable artifact, optional email
+   4. Publish      JUnit results, report archived as a downloadable artifact, optional email
 ```
 
 The **Allure Jenkins plugin** handles history on Jenkins. It copies the previous build's history into the new results, keeps the trend across builds and labels runs with Jenkins build numbers. It replaces what `AllureHistoryListener` does locally. The listener keeps working, so local runs are not affected.
@@ -30,7 +30,7 @@ The **Allure Jenkins plugin** handles history on Jenkins. It copies the previous
 | 1 | Check the server OS | Most likely Linux. Tests must run **headless**, because the server has no screen for a browser window. |
 | 2 | Install **Java 17+** and **Maven** | **Manage Jenkins → Tools**: add a JDK named `jdk17` and a Maven installation named `maven3` (or install both on the machine). |
 | 3 | Install **Google Chrome** on the server | WebDriverManager downloads the *driver*, not the *browser*. Debian/Ubuntu: `sudo apt install google-chrome-stable`. |
-| 4 | Install Jenkins plugins | **Allure Jenkins Plugin**, **Pipeline**, **Git**, **JUnit**, **Pipeline Utility Steps** (for zipping the report), **Timestamper** (time on each console line). Optional: **Email Extension**. |
+| 4 | Install Jenkins plugins | **Allure Jenkins Plugin**, **Pipeline**, **Git**, **JUnit**, **Timestamper** (time on each console line). Optional: **Email Extension**. |
 | 5 | Configure the Allure command line | **Manage Jenkins → Tools → Allure Commandline**: add version `2.34.0`, "Install automatically", name it `allure`. |
 | 6 | GitHub access | Public repo: nothing needed. Private repo: add a GitHub personal access token as a Jenkins credential. |
 | 7 | Outbound internet access | The build needs Maven Central (libraries), the chromedriver downloads and `saucedemo.com`. |
@@ -71,7 +71,7 @@ Jenkins reads this file from the repo on every build.
 | `post { always { … } }` | Publishes the reports whether the tests passed or failed. |
 | `junit …surefire-reports/*.xml` | Jenkins's own **Test Result** page and trend. |
 | `allure results: [[path: 'reporter/allure-results']]` | Builds the Allure report (into the workspace's `allure-report/`) and keeps history between builds. |
-| `zip … archive: true` | Saves `allure-report.zip` as a downloadable build artifact. |
+| `archiveArtifacts 'allure-report/**'` | Keeps a copy of the report with each build, downloadable as a zip. Built into Jenkins, no extra plugin. |
 
 ### 3.2 Chrome settings for a Linux server
 
@@ -102,7 +102,7 @@ The exact Maven command from the `Jenkinsfile` was run on a Mac, headless:
 | `testng.xml` | 5 tests, all passed | 0 |
 | `testng-demo.xml` | Failures recorded as expected | 0 (build continues, so reports get published) |
 
-The Jenkins steps themselves (`junit`, `allure`, `zip`) can only be checked on the server, in Phase 3.
+The Jenkins steps themselves (`junit`, `allure`, `archiveArtifacts`) can only be checked on the server, in Phase 3.
 
 ---
 
@@ -130,7 +130,7 @@ The Jenkins steps themselves (`junit`, `allure`, `zip`) can only be checked on t
 | Build page → **Allure Report** | Full interactive report for that build (steps, screenshots, retries). |
 | Job page → **Allure Report trend** chart | Pass/fail history across builds, kept by the plugin. |
 | Build page → **Test Result** | TestNG results through the JUnit step, with Jenkins's own trend. |
-| Build page → **Build Artifacts → `allure-report.zip`** | Downloadable copy. To view: unzip, then `allure open allure-report`. |
+| Build page → **Build Artifacts → (all files in zip)** | Downloadable copy of the report. To view: unzip, then `allure open allure-report`. |
 | Email (optional, Email Extension plugin) | Build status, pass/fail counts and a link to the report after each build. |
 
 ---
@@ -141,7 +141,8 @@ The Jenkins steps themselves (`junit`, `allure`, `zip`) can only be checked on t
 |---|---|
 | `chrome not found` / `session not created` | Chrome not installed on the server (Phase 1, step 3). |
 | Chrome crashes: `DevToolsActivePort file doesn't exist` | The tests must run headless, where `--no-sandbox --disable-dev-shm-usage` are added (section 3.2). Check `-Dheadless=true` is in the Maven command. |
-| `No such DSL method 'zip'` / `'timestamps'` | Install the **Pipeline Utility Steps** / **Timestamper** plugin (Phase 1, step 4). |
+| `Invalid parameter "zipFile", did you mean "label"?` | An older Jenkinsfile used the `zip` step, which needs the Pipeline Utility Steps plugin. Fixed: the Jenkinsfile now uses the built-in `archiveArtifacts`. |
+| `Invalid option type "timestamps"` | Install the **Timestamper** plugin (Phase 1, step 4). |
 | `No such DSL method 'allure'` | Install the **Allure Jenkins Plugin** and set up **Allure Commandline** under Tools. |
 | Test Result page shows more skipped tests than Allure | Retried attempts are counted as skipped in the JUnit XML. Allure counts each test once, so use Allure's numbers. |
 | `No such tool 'jdk17'` / `'maven3'` | Tool names in the Jenkinsfile don't match **Manage Jenkins → Tools**. |

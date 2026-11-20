@@ -62,8 +62,9 @@ pipeline {
             // Allure report + history trend (Allure Jenkins plugin); report goes to ./allure-report
             allure includeProperties: false, results: [[path: 'reporter/allure-results']]
 
-            // Downloadable copy of the report (Pipeline Utility Steps plugin)
-            zip zipFile: 'allure-report.zip', dir: 'allure-report', archive: true, overwrite: true
+            // Downloadable copy of the report (built-in step, no extra plugin).
+            // Build page → Build Artifacts → "(all files in zip)" downloads it as one zip.
+            archiveArtifacts artifacts: 'allure-report/**', allowEmptyArchive: true
         }
     }
 }
